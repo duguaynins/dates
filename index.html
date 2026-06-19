@@ -222,7 +222,7 @@ document.addEventListener(
                 "&source=",
                 "&sprop="
             ].join("");
-
+            navigator.clipboard.writeText(url);
             window.location.href = url;
 
         });
