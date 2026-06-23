@@ -206,7 +206,7 @@ document.addEventListener(
         navigator.geolocation.getCurrentPosition((pos)=>{
 
             const location =
-                `${pos.coords.latitude},${pos.coords.longitude}`;
+                `https://www.google.com/maps/search/?api=1&query=${pos.coords.latitude},${pos.coords.longitude}`;
 
             const url = [
                 "https://www.google.com/calendar/render?",
