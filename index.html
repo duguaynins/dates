@@ -267,12 +267,15 @@ END:VCALENDAR`.trim();///RRULE:FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=5
             link.click();
             document.body.removeChild(link);
 
-        }/*,
+        },
+        (err) => {
+            console.error(err);
+        },
         {
             enableHighAccuracy: true,
             timeout: 10000,
             maximumAge: 0
-        }*/);
+        });
 
     },
     { once:true }
