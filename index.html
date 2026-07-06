@@ -41,8 +41,8 @@ canvas{
     align-items:center;
 
     transition:
-        background-color 1.2s ease,
-        opacity 1s ease;
+        background-color 0.75s ease,
+        opacity 0.75s ease;
 }
 
 #secret{
@@ -59,23 +59,34 @@ canvas{
         transform 1s ease;
 
     transform:translateY(10px);
+    text-align: center;
 }
 </style>
 </head>
 
 <body>
 
-<canvas id="c"></canvas>
+<canvas id="colors"></canvas>
 
 <div id="flash">
-    <div id="secret"></div>
+    <a id="secret"></a>
+    <p id="clipboard" style="display: none;"></p>
 </div>
 
 <script>
-const canvas = document.getElementById("c");
+const canvas = document.getElementById("colors");
 const ctx = canvas.getContext("2d");
 
 let w, h, dpr;
+
+// 頁面載入即開始 GPS 定位
+let gpsPromise = new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 90909,
+        maximumAge: 0
+    });
+});
 
 function resize(){
     dpr = window.devicePixelRatio || 1;
@@ -165,8 +176,11 @@ document.addEventListener(
     `${String(Math.abs(hours)).padStart(2,"0")}:` +
     `${String(minutes).padStart(2,"0")}`;
         let utc = new Date().toISOString();
-        let details = `${utc}${tz}`;
-        ///let details = `${utc}${offset}/60`;
+        let details = `${utc}${tz}`;///${utc}${offset}/60`;
+
+        let dates = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+        let year = dates.slice(0, 4);
+        let ctz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
         const flash = document.getElementById("flash");
         const secret = document.getElementById("secret");
@@ -178,17 +192,18 @@ document.addEventListener(
         /* 2. 偷偷顯示黑字 */
 
         secret.textContent = details;
+        secret.innerHTML = `${utc}<br>${ctz}<br>${tz}`;
         secret.style.color = "#000";
         secret.style.opacity = "1";
         ///secret.style.transform = "translateY(0)";
 
-        await wait(1500/1);
+        await wait(1500/2);
 
         /* 3. 切成全白 */
 
         flash.style.backgroundColor = "#fff";
 
-        await wait(600/5);
+        await wait(1500/2);
 
         /* 4. 白底浮現文字 */
 
@@ -200,46 +215,49 @@ document.addEventListener(
         /* 5. 建立 Calendar URL */
 
 
-        const title = prompt("title");
-        ///const desc = prompt("body");
+        ///const main = prompt("main");
+        ///const desc = prompt("desc");
 
-        let dates = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-        let year = dates.slice(0, 4);
-        let ctz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let pos;
+        try {
+            pos = await gpsPromise;
+        } catch (err) {
+            console.error(err);
+            alert(String(err.message));
+            return;
+        }
 
-        navigator.geolocation.getCurrentPosition((pos)=>{
-            
-            let coords = `${pos.coords.latitude},${pos.coords.longitude}`;
-            const location =
-                `https://www.google.com/maps/search/?api=1&query=${coords}`;
+        let coords = `${pos.coords.latitude},${pos.coords.longitude}`;
+        const location = `https://www.google.com/maps/search/?api=1&query=${coords}`;
+        const description = `https://www.google.com/maps/search/?api=1&query=${coords}&nins=${details}`;
 
-            const url = [
-                "https://www.google.com/calendar/render?",
-                "action=TEMPLATE",
-                `&text=${year}-${ctz}-${title}`,
-                `&dates=${dates}/${dates}`,
-                `&ctz=${ctz}`,
-                `&location=${encodeURIComponent(coords)}`,
-                "&trp=true",
-                "&recur=",
-                "&add=",
-                `&details=${encodeURIComponent(details)}---${encodeURIComponent(location)}`,
-                "&source=",
-                "&sprop="
-            ].join("");
-            navigator.clipboard.writeText(url);
-            ///window.location.href = url;
+        const url = [
+            "https://www.google.com/calendar/render?",
+            "action=TEMPLATE",
+            `&text=${year}-${ctz}`,
+            `&dates=${dates}/${dates}`,
+            `&ctz=${ctz}`,
+            `&location=${encodeURIComponent(coords)}`,
+            "&trp=true",
+            "&recur=",
+            "&add=",
+            `&details=${encodeURIComponent(description)}`,
+            "&source=",
+            "&sprop="
+        ].join("");
+        navigator.clipboard.writeText(url);
+        ///window.location.href = url;
 
-            // 起訖時間（預設 1 小時）
-            const now = new Date();
-            const dtStart = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-            const dtEnd = new Date(now.getTime() + 60 * 60 * 1000)
-            .toISOString()
-            .replace(/[-:]/g, "")
-            .split(".")[0] + "Z";
+        // 起訖時間（預設 1 小時）
+        const now = new Date();
+        const dtStart = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+        const dtEnd = new Date(now.getTime() + 60 * 60 * 1000)
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .split(".")[0] + "Z";
 
-            const ics =
-            `
+        const ics =
+        `
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//NINS//Calendar//EN
@@ -250,36 +268,39 @@ UID:${crypto.randomUUID()}
 DTSTAMP:${dtStart}
 DTSTART:${dtStart}
 DTEND:${dtEnd}
-SUMMARY:${year}-${ctz}-${title}
-DESCRIPTION:${details}---${location}
+SUMMARY:${year}-${ctz}
+DESCRIPTION:${description}
 LOCATION:${coords}
 RRULE:FREQ=YEARLY
 END:VEVENT
 END:VCALENDAR`.trim();///RRULE:FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=5
 
-            const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-            const link = document.createElement("a");
+        const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });/*
+        const link = document.createElement("a");
 
-            link.href = URL.createObjectURL(blob);
-            link.download = `nins-dates-${Date.now()}.ics`;
+        link.href = URL.createObjectURL(blob);
+        link.download = `nins-dates-${Date.now()}.ics`;
 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);*/
 
-        },
-        (err) => {
-            console.error(err);
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        });
+        
+        document.getElementById("secret").href = URL.createObjectURL(blob);
+        document.getElementById("secret").download = `nins-dates-${Date.now()}.ics`;
+        document.getElementById("secret").textContent = `nins-dates-${Date.now()}.ics`;
+        document.getElementById("secret").style.pointerEvents = "auto";
+        document.getElementById("colors").style.display = `none`;
+        document.getElementById("clipboard").textContent = url;
 
     },
     { once:true }
 );
+
+document.getElementById("secret").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(document.getElementById("clipboard").textContent);
+    alert("copied and downloaded");
+});
 </script>
 
 </body>
