@@ -288,7 +288,7 @@ END:VCALENDAR`.trim();///RRULE:FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=5
         
         document.getElementById("secret").href = URL.createObjectURL(blob);
         document.getElementById("secret").download = `nins-dates-${Date.now()}.ics`;
-        document.getElementById("secret").textContent = `nins-dates-${Date.now()}.ics`;
+        document.getElementById("secret").textContent = `nins-dates-xxxxxx.ics`;
         document.getElementById("secret").style.pointerEvents = "auto";
         document.getElementById("colors").style.display = `none`;
         document.getElementById("clipboard").textContent = url;
